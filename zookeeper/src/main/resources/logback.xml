@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- For assistance related to logback-translator or configuration  -->
+<!-- files in general, please contact the logback user mailing list -->
+<!-- at http://www.qos.ch/mailman/listinfo/logback-user             -->
+<!--                                                                -->
+<!-- For professional support please see                            -->
+<!--    http://www.qos.ch/shop/products/professionalSupport         -->
+<!--                                                                -->
+<configuration debug="true" scan="true" scanPeriod="60 seconds">
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="debug">
+        <appender-ref ref="STDOUT" />
+    </root>
+
+
+
+    <appender name="zookeeper.appender" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{ISO8601}  - %-5p [%t:%C{1}@%L] - %m%n</pattern>
+        </encoder>
+    </appender>
+    <appender name="zookeeper.appender.CONSOLE" class="ch.qos.logback.core.ConsoleAppender" >
+        <encoder>
+            <pattern>%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n</pattern>
+        </encoder>
+    </appender>
+    <logger name="org.apache.zookeeper" level="INFO" additivity = "false">
+        <appender-ref ref="zookeeper.appender" />
+    </logger>
+    <logger name="org.apache.zookeeper.ClientCnxn" level="INFO" additivity = "false">
+        <appender-ref ref="zookeeper.appender.CONSOLE" />
+    </logger>
+
+
+
+</configuration>
