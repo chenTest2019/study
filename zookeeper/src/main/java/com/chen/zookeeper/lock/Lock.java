@@ -2,6 +2,7 @@ package com.chen.zookeeper.lock;
 
 import lombok.SneakyThrows;
 import org.apache.zookeeper.*;
+import org.apache.zookeeper.data.Stat;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -13,53 +14,60 @@ import java.util.concurrent.locks.LockSupport;
 public class Lock {
 
 
-    private ZooKeeper zk=null;
-    private static CountDownLatch  countDownLatch=new CountDownLatch(1);
+    private ZooKeeper zk = null;
+    private static CountDownLatch countDownLatch = new CountDownLatch(1);
 
-    private NodeWatch nodeWatch=new NodeWatch();
-    private SessionWatch sessionWatch=new SessionWatch();
+    private NodeWatch nodeWatch = new NodeWatch();
+    private SessionWatch sessionWatch = new SessionWatch();
 
-    private final String lock="/lock";
+    private final String lock = "/lock";
     private volatile CallBack current;
-    public  void getLock() throws KeeperException, InterruptedException, BrokenBarrierException {
-         getLock(lock);
+
+    public void getLock() throws KeeperException, InterruptedException, BrokenBarrierException {
+        getLock(lock);
     }
-    public synchronized void getLock(String path)  {
+
+    private synchronized void getLock(String path) {
         Thread thread = Thread.currentThread();
-        String name= thread.getName();
-        zk.create(path,name.getBytes(),ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL, new CallBack(zk,Thread.currentThread(),this),this);
+        String name = thread.getName();
+        zk.create(path, name.getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL, new CallBack(zk, Thread.currentThread()), this);
         LockSupport.park();
     }
-    public  void releaseLock() throws KeeperException, InterruptedException {
+
+    public void releaseLock() throws KeeperException, InterruptedException {
         Thread thread = Thread.currentThread();
         //System.out.println("thread:"+thread.getName()+"开始");
-        zk.delete(this.current.name,0);
+        zk.delete(this.current.name, this.current.stat.getVersion());
         //System.out.println("thread:"+thread.getName()+"已删除");
 
     }
 
-    public Lock()  {
+    public Lock() {
         try {
-            zk=ZkUtils.getZk(sessionWatch);
+            zk = ZkUtils.getZk(sessionWatch);
             countDownLatch.await();
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
-        nodeWatch.me=Thread.currentThread();
+        nodeWatch.me = Thread.currentThread();
         try {
-            zk.addWatch(lock,nodeWatch, AddWatchMode.PERSISTENT);
+            zk.addWatch(lock, nodeWatch, AddWatchMode.PERSISTENT);
         } catch (KeeperException | InterruptedException e) {
             e.printStackTrace();
         }
 
     }
 
-    static class SessionWatch implements Watcher{
+    static class SessionWatch implements Watcher {
         private ZooKeeper zk;
-        public SessionWatch(){}
-        public SessionWatch(ZooKeeper zk){
-            this.zk=zk;
+
+        public SessionWatch() {
         }
+
+        public SessionWatch(ZooKeeper zk) {
+            this.zk = zk;
+        }
+
         @SneakyThrows
         @Override
         public void process(WatchedEvent event) {
@@ -101,7 +109,7 @@ public class Lock {
                     //System.out.println("SessionWatch Disconnected:"+name);
                     break;
                 case SyncConnected:
-                    System.out.println("SessionWatch SyncConnected:"+name);
+                    System.out.println("SessionWatch SyncConnected:" + name);
                     countDownLatch.countDown();
                     break;
                 case AuthFailed:
@@ -123,13 +131,17 @@ public class Lock {
         }
     }
 
-    static class NodeWatch implements Watcher{
+    static class NodeWatch implements Watcher {
         private Thread me;
         private ZooKeeper zk;
-        public NodeWatch(){}
-        public NodeWatch(ZooKeeper zk){
-            this.zk=zk;
+
+        public NodeWatch() {
         }
+
+        public NodeWatch(ZooKeeper zk) {
+            this.zk = zk;
+        }
+
         @SneakyThrows
         @Override
         public void process(WatchedEvent event) {
@@ -148,7 +160,7 @@ public class Lock {
                     //System.out.println("me.getName():"+me.getName());
                     break;
                 case NodeDeleted:
-                    System.out.println("NodeWatch NodeDeleted "+name);
+                    System.out.println("NodeWatch NodeDeleted " + name);
                     //System.out.println("me.getName():"+me.getName());
                     //can=true;
                     //cyclicBarrier.await();
@@ -197,42 +209,51 @@ public class Lock {
         }
     }
 
-    static class CallBack implements AsyncCallback.StringCallback , AsyncCallback.VoidCallback, Watcher {
+    static class CallBack implements AsyncCallback.StringCallback, AsyncCallback.VoidCallback, Watcher {
 
-       private final ZooKeeper zk;
+        private final ZooKeeper zk;
         private final Thread thread;
-        private final Lock lock;
+        private Lock lock;
         private String name;
-        public CallBack(ZooKeeper zk,Thread thread,Lock lock){
-            this.zk=zk;
-            this.thread=thread;
-            this.lock=lock;
+        private final Stat stat;
+
+        public CallBack(ZooKeeper zk, Thread thread) {
+            this.zk = zk;
+            this.thread = thread;
+            this.stat = new Stat();
         }
 
         //AsyncCallback.StringCallback
         @Override
         public void processResult(int rc, String path, Object ctx, String name) {
             try {
-                this.name=name;
+                if(name==null||"".equals(name)){
+                    System.out.println("创建节点失败");
+                    //todo
+                }
+                this.name = name;
+                this.lock = (Lock) ctx;
+                zk.getData(name, false, this.stat);
                 List<String> children = zk.getChildren("/", false);
                 Collections.sort(children);
-                int i = children.indexOf(name.replaceAll("/",""));
-                if(i==0){
+                int i = children.indexOf(name.replaceAll("/", ""));
+                if (i == 0) {
                     LockSupport.unpark(thread);
-                    this.lock.current=this;
-                }else{
-                    zk.addWatch("/"+children.get(i-1),this,AddWatchMode.PERSISTENT);
+                    this.lock.current = this;
+                } else {
+                    zk.addWatch("/" + children.get(i - 1), this, AddWatchMode.PERSISTENT);
                 }
             } catch (KeeperException | InterruptedException e) {
                 e.printStackTrace();
             }
+            //todo
         }
 
         //AsyncCallback.VoidCallback
         @Override
         public void processResult(int rc, String path, Object ctx) {
             //唤醒线程
-            System.out.println("thread"+thread+"唤醒aaaa");
+            System.out.println("thread" + thread + "唤醒aaaa");
             LockSupport.unpark(this.thread);
         }
 
@@ -242,7 +263,7 @@ public class Lock {
             //唤醒线程
             //System.out.println(thread+"被上一个节点唤醒");
             //this.name=event.getPath();
-            this.lock.current=this;
+            this.lock.current = this;
             LockSupport.unpark(this.thread);
         }
     }
