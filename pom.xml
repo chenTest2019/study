@@ -43,19 +43,19 @@
 <!--        <repository>-->
 <!--            <id>nexus</id>-->
 <!--            <name>maven-public</name>-->
-<!--            <url>http://localhost:8081/repository/maven-public/</url>-->
+<!--            <url>http://192.168.80.120:8081/repository/maven-public/</url>-->
 <!--        </repository>-->
         <!-- 快照测试版本 -->
         <snapshotRepository>
             <id>nexus</id>
             <name>maven-snapshots</name>
-            <url>http://localhost:8081/repository/maven-snapshots/</url>
+            <url>http://192.168.80.120:8081/repository/maven-snapshots/</url>
         </snapshotRepository>
         <!-- 发布版本 -->
         <repository>
             <id>nexus</id>
             <name>maven-releases</name>
-            <url>http://localhost:8081/repository/maven-releases/</url>
+            <url>http://192.168.80.120:8081/repository/maven-releases/</url>
         </repository>
     </distributionManagement>
     <dependencies>
