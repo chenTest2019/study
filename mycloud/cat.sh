@@ -1,0 +1,7 @@
+cat  > /etc/apt/sources.list <<END
+deb http://mirrors.163.com/debian/ stretch main
+deb http://mirrors.163.com/debian/ stretch-updates main non-free contrib
+deb-src http://mirrors.163.com/debian/ stretch-updates main non-free contrib
+deb http://mirrors.163.com/debian-security/ stretch/updates main non-free contrib
+deb http://httpredir.debian.org/debian stretch-backports main contrib non-free
+END
