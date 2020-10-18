@@ -34,12 +34,13 @@ public class ConcurrentHashMapTest {
     }
 
     void b(){
+        //todo 死锁深度分析
         ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>();
         System.out.println("start.");
         map.computeIfAbsent("t",
                 (String t) -> {
-                    map.put("t", "t");
-                    return "t";
+                    map.put("t", "abc");
+                    return "123";
                 });
         System.out.println("fin.");
     }
